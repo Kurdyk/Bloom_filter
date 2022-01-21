@@ -2,13 +2,27 @@
 #include <cstdint>
 #include <cstdio>
 #include <unordered_map>
-#include <cstring>
 #include <bitset>
 
 #include "BloomFilter.h"
 
 using namespace std;
 
+/** Global variables declaration.
+ * encoding is a map to give value to each nucleotide.
+ * rev_table is a map that associate a nucleotide with it's complement
+ * k is the length of the wanted k-mers
+ * filter is used to make bits to bits & necessary to calculate hash values from precedent value.
+ */
+unordered_map<char, uint64_t> encoding;
+unordered_map<char, char> rev_table;
+int k;
+uint64_t filter;
+
+/**
+ * Set the file pointer to the start of the DNA sequence.
+ * @param fasta a file in fasta format.
+ */
 void set_fasta(FILE* fasta){
     int c;
     c = fgetc(fasta);
@@ -21,80 +35,155 @@ void set_fasta(FILE* fasta){
     }
 }
 
-
+/**
+ * Read the next character in a fasta file excluding end of line and 'N' characters.
+ * @param fasta a file in fasta format.
+ * @return the next character of the sequence.
+ */
 char read_fasta(FILE* fasta) {
     int c = fgetc(fasta);
     if (c == '\n' || c == 'N') return read_fasta(fasta);
     return (char) c;
 }
 
-
-uint64_t set_filter(int k) {
-    std::string str;
+/**
+ * Initialise the filter.
+ * @return the value of the filter linked to the size k.
+ */
+uint64_t set_filter() {
+    string str;
     str.resize(2*(k+1), '1');
     std::fill(str.begin(), str.begin() + 2, '0');
-    std::bitset<64> filter(str);
-    return filter.to_ullong();
+    bitset<64> filtre(str);
+    return filtre.to_ullong();
 }
 
-
-uint64_t quick_pow(uint64_t base, uint64_t power)
-{
-    uint64_t value = 1;
-    while (power)
-    {
-        if (power % 2)
-            value *= base;
-        power /= 2;
-        base *= base;
+/**
+ * Choose between the to form of a k-mer between itself and it's reverse complement.
+ * @param kmer the actual kmer.
+ * @return the smallest in lexicographic order between kmer and it's reverse complement.
+ */
+string choose_complement(const string &kmer) {
+    string reverse;
+    for (int i = 0; i < k; i++) {
+        reverse += rev_table.at(kmer.at(k - i - 1));
     }
-    return value;
+    return (reverse < kmer) ? reverse : kmer;
 }
 
-uint64_t hash_string(const string str, int length , unordered_map<char, int> encoding) {
+/**
+ * Hash the given kmer.
+ * @param kmer a kmer to hash.
+ * @return the minimum between hash of kmer or of it's reverse complement.
+ */
+uint64_t hash_string(string kmer) {
     uint64_t value = 0;
-    for (int i = 0; i < length; i++) {
-        value += quick_pow(4, length - 1 - i) * encoding.at(str[i]);
+    kmer = choose_complement(kmer);
+    for (int i = 0; i < k; i++) {
+        value = (value << 2) + encoding.at(kmer[i]);
     }
     return value;
 }
 
-
-u_int64_t hash_from_previous_kmer(uint64_t prev_val, char new_end, uint64_t filter, unordered_map<char, int> encoding){
-    return ((prev_val << 2) & filter) + encoding.at(new_end);
+/**
+ * Hash the reverse complement of a kmer.
+ * @param kmer a kmer to reverse and hash.
+ * @return the hash of kmer's complement.
+ */
+uint64_t hash_rev(string kmer) {
+    string reverse;
+    for (int i = 0; i < k; i++) {
+        reverse += rev_table.at(kmer.at(k - i - 1));
+    }
+    uint64_t value = 0;
+    for (int i = 0; i < k; i++) {
+        value = (value << 2) + encoding.at(reverse[i]);
+    }
+    return value;
 }
 
+/**
+ * Hash the first k-mer of the fasta file and it's complement for initialisation.
+ * @param kmer the first k-mer of the file.
+ * @param prev_val a reference to the hash of the previous k-mer (without considering it's complement).
+ * @param prev_val_rc a reference to the hash of the previous k-mer's complement.
+ * @return the hash of the first k-mer of the file (or it's complement).
+ */
+uint64_t hash_start(string kmer, uint64_t &prev_val, uint64_t &prev_val_rc) {
+    uint64_t value = 0;
+    for (int i = 0; i < k; i++) {
+        value = (value << 2) + encoding.at(kmer[i]);
+    }
+    prev_val = value;
+    prev_val_rc = hash_rev(kmer);
+    return hash_string(kmer);
+}
 
-void process_fasta(FILE* fasta, int k, BloomFilter BF,  const unordered_map<char, int>& encoding) {
+/**
+ * Determine the hash of the actual k-mer from the previous k-mer, it's hash value,
+ * the hash value of it's complement and the next nucleotide of the sequence.
+ * @param prev_val a reference to the hash of the previous k-mer (without considering it's complement).
+ * @param prev_val_rc a reference to the hash of the previous k-mer's complement.
+ * @param prev_kmer a reference to the previous k-mer in the file.
+ * @param new_end the nucleotide just after prev_kmer determining the actual k-mer.
+ * @return the hash value of the actual k-mer.
+ */
+uint64_t hash_from_previous_kmer(uint64_t &prev_val, uint64_t &prev_val_rc, string &prev_kmer, const char &new_end){
+    prev_kmer.erase(0, 1).push_back(new_end);
+    prev_val = ((prev_val << 2) & filter) + encoding.at(new_end);
+    prev_val_rc = (((prev_val_rc >> 2) + (encoding.at((rev_table.at(new_end))) << (2 * (k - 1)))));
+    return (prev_val < prev_val_rc)? prev_val : prev_val_rc;
+    /*
+    if (choose_complement(prev_kmer) == prev_kmer) {
+        return prev_val;
+    }
+    else {
+        return prev_val_rc;
+    }
+     */
+}
 
-    uint64_t filter = set_filter(k);
-
+/**
+ * Hash and add to a BloomFilter every k-mer of a fasta file.
+ * @param fasta a file in the fasta format.
+ * @param BF a BloomFilter to store the k-mer.
+ */
+void process_fasta(FILE* fasta, BloomFilter &BF) {
+    cout << "Running..." << endl;
+    filter = set_filter();
     set_fasta(fasta);
 
+    long n = 0;
     char c;
-    std::string kmer;
+    string kmer;
     bool wanted_size = false;
     uint64_t value;
+    uint64_t prev_value;
+    uint64_t prev_value_rc;
     while((c = read_fasta(fasta)) != EOF) {
         if(!wanted_size) {
             kmer.push_back(c);
             if (kmer.length() == k) {
                 wanted_size = true;
-                // TODO : choose the good kmer.
-                value = hash_string(kmer, k, encoding);
+                value = hash_start(kmer, prev_value, prev_value_rc);
                 BF.add_element(value);
+                n++;
             }
         } else {
-            // TODO : choose the good kmer and shit with the new c.
-            value = hash_from_previous_kmer(value, c, filter, encoding);
+            value = hash_from_previous_kmer(prev_value, prev_value_rc, kmer, c);
             BF.add_element(value);
+            n++;
         }
     }
+    cout << "End of file. " << n << " elements added."<< endl;
 }
 
-
-std::string random_kmer(int k) {
-    std::string kmer;
+/**
+ * Generate a random k-mer.
+ * @return a string containing a random k-mer.
+ */
+string random_kmer() {
+    string kmer;
     char possible_value[] = {'A', 'C', 'G', 'T'};
     for (int i = 0; i < k; i ++) {
         kmer += possible_value[rand() % 4];
@@ -102,31 +191,49 @@ std::string random_kmer(int k) {
     return kmer;
 }
 
-
-void random_requests(uint64_t nb_requests, BloomFilter BF, int k,  const unordered_map<char, int>& encoding){
+/**
+ * Make nb_requests of random k-mer to a BloomFilter.
+ * @param nb_requests the wanted number of requests.
+ * @param BF a BloomFilter.
+ */
+void random_requests(const uint64_t &nb_requests, BloomFilter &BF){
     for (uint64_t i = 0; i < nb_requests; i++) {
-        cout << BF.is_present(hash_string(random_kmer(k), k, encoding)) << endl;
+        string to_test = random_kmer();
+        cout << "test if kmer (or it's reverse complement) : "
+        << to_test << " is present : " << BF.is_present(hash_string(to_test)) << endl;
     }
 }
 
-int main(int argc, char *argv[]) {
-    int k = 10;
-    srand(time(NULL));
 
-    unordered_map<char, int> encoding;
-    encoding['A'] = 0;
-    encoding['C'] = 1;
-    encoding['T'] = 2;
-    encoding['G'] = 3;
+int main(int argc, char *argv[]) {
+
+    /// Getting command line arguments and setting the global variables.
+    k = atol(argv[2]);
+    uint64_t n = atol(argv[3]);
+    int nf = atoi(argv[4]);
+    uint64_t r = atol(argv[5]);
+
+
+    encoding['A'] = 0; // 00
+    encoding['T'] = 3; // 11
+    encoding['C'] = 1; // 01
+    encoding['G'] = 2; // 10
+
+    rev_table['A'] = 'T';
+    rev_table['T'] = 'A';
+    rev_table['C'] = 'G';
+    rev_table['G'] = 'C';
 
 
     FILE* file = fopen(argv[1], "r");
-    BloomFilter BF = BloomFilter(250000, 12);
+    BloomFilter BF = BloomFilter(n, nf);
 
-    process_fasta(file, k, BF, encoding);
-
+    process_fasta(file, BF);
     fclose(file);
-    BF.delete_tab();
+
+    srand(time(NULL));
+    random_requests(r, BF);
+
 
     return 0;
 }

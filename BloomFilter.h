@@ -11,34 +11,48 @@ class BloomFilter {
 
     private:uint64_t size;
     private:uint nf;
-    private:std::vector<bool>* tab;
+    private:std::vector<bool> tab;
 
-
+    /**
+     * The constructor of the Bloomfilter class.
+     * tab is declared as a vector<bool> to use the specific implementation of vector for the type bool.
+     * This implementation construct a vector of n bits and not n bytes to store the values.
+     * This allows to divide to necessary space by 8.
+     */
     public:BloomFilter(uint64_t n, uint nf) {
         this->size = n;
         this->nf = nf;
-        tab = new vector<bool>(n, false);
+        tab = vector<bool>(n, false);
     }
 
+    /**
+     * Add a element to the Bloom filter, by hashing it's value nf times and setting the corresponding bits to 1.
+     *  @param value a value to add to the Bloom filter.
+     */
     public:void add_element(uint64_t value) {
         uint64_t hashes[this->nf];
-        memset(hashes, 0, nf);
         multihash(value,  hashes);
         for (int i = 0; i < this->nf; i++) {
-            this->tab->at(hashes[i]) = true;
+            this->tab.at(hashes[i]) = true;
         }
     }
 
+    /**
+     * Test the presence of a certain value in the Bloom filter.
+     *  @param value a value to test
+     *  @return false if the value is absent, true otherwise (false positives are possible)
+     */
     public:bool is_present(uint64_t value) {
         uint64_t hashes[this->nf];
         multihash(value,  hashes);
         for (int i = 0; i < this->nf; i++) {
-            if(!this->tab->at(hashes[i])) return false;
+            if(!this->tab.at(hashes[i])) return false;
         }
         return true;
     }
 
-    /** Hash function that uses xor properties
+    /**
+    * Hash function that uses xor properties
     * @param x a 64-bits value to hash
     * @return hashed value
     */
@@ -49,13 +63,13 @@ class BloomFilter {
         return x;
     }
 
-    /** Generate multiple hashes of the same value using sequences of xorshifts.
+    /**
+    * Generate multiple hashes of the same value using sequences of xorshifts.
     * @param x The value to hash
     * @param hashes An array already allocated to fill with hash values
     */
     private:void multihash(uint64_t x, uint64_t * hashes) {
-        // TODO : gérer la valeur 0
-
+        x++;
         // Init 64 bits hashes
         hashes[0] = xorshift64(x);
         for (uint64_t i=1 ; i < this->nf ; i++)
@@ -66,14 +80,11 @@ class BloomFilter {
     }
 
 
+    // TODO : remove test function.
     public:void print() {
         for (uint64_t i = 0; i < this->size; i++) {
-            cout << tab->at(i) << ' ';
+            cout << tab.at(i) << ' ';
         }
-    }
-
-    public:void delete_tab() {
-        delete this->tab;
     }
 
 
