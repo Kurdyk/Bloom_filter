@@ -1,9 +1,4 @@
-#include <iostream>
-#include <cstdint>
-#include <cstdio>
-#include <unordered_map>
-#include <bitset>
-
+#include "fastaProcessing.h"
 #include "BloomFilter.h"
 
 using namespace std;
@@ -126,21 +121,13 @@ uint64_t hash_start(string kmer, uint64_t &prev_val, uint64_t &prev_val_rc) {
  * @param prev_val_rc a reference to the hash of the previous k-mer's complement.
  * @param prev_kmer a reference to the previous k-mer in the file.
  * @param new_end the nucleotide just after prev_kmer determining the actual k-mer.
- * @return the hash value of the actual k-mer.
+ * @return the hash value of the actual k-mer or it's complement depending on which is the smallest.
  */
 uint64_t hash_from_previous_kmer(uint64_t &prev_val, uint64_t &prev_val_rc, string &prev_kmer, const char &new_end){
     prev_kmer.erase(0, 1).push_back(new_end);
     prev_val = ((prev_val << 2) & filter) + encoding.at(new_end);
     prev_val_rc = (((prev_val_rc >> 2) + (encoding.at((rev_table.at(new_end))) << (2 * (k - 1)))));
     return (prev_val < prev_val_rc)? prev_val : prev_val_rc;
-    /*
-    if (choose_complement(prev_kmer) == prev_kmer) {
-        return prev_val;
-    }
-    else {
-        return prev_val_rc;
-    }
-     */
 }
 
 /**
@@ -148,9 +135,23 @@ uint64_t hash_from_previous_kmer(uint64_t &prev_val, uint64_t &prev_val_rc, stri
  * @param fasta a file in the fasta format.
  * @param BF a BloomFilter to store the k-mer.
  */
-void process_fasta(FILE* fasta, BloomFilter &BF) {
-    cout << "Running..." << endl;
+void process_fasta(FILE* fasta, BloomFilter &BF, const int &length) {
+
+    k = length;
+
+    encoding['A'] = 0; // 00
+    encoding['T'] = 3; // 11
+    encoding['C'] = 1; // 01
+    encoding['G'] = 2; // 10
+
+    rev_table['A'] = 'T';
+    rev_table['T'] = 'A';
+    rev_table['C'] = 'G';
+    rev_table['G'] = 'C';
+
     filter = set_filter();
+
+    cout << "Running..." << endl;
     set_fasta(fasta);
 
     long n = 0;
@@ -197,43 +198,13 @@ string random_kmer() {
  * @param BF a BloomFilter.
  */
 void random_requests(const uint64_t &nb_requests, BloomFilter &BF){
+    srand(time(NULL));
     for (uint64_t i = 0; i < nb_requests; i++) {
         string to_test = random_kmer();
         cout << "test if kmer (or it's reverse complement) : "
-        << to_test << " is present : " << BF.is_present(hash_string(to_test)) << endl;
+             << to_test << " is present : " << BF.is_present(hash_string(to_test)) << endl;
     }
+
+
 }
 
-
-int main(int argc, char *argv[]) {
-
-    /// Getting command line arguments and setting the global variables.
-    k = atol(argv[2]);
-    uint64_t n = atol(argv[3]);
-    int nf = atoi(argv[4]);
-    uint64_t r = atol(argv[5]);
-
-
-    encoding['A'] = 0; // 00
-    encoding['T'] = 3; // 11
-    encoding['C'] = 1; // 01
-    encoding['G'] = 2; // 10
-
-    rev_table['A'] = 'T';
-    rev_table['T'] = 'A';
-    rev_table['C'] = 'G';
-    rev_table['G'] = 'C';
-
-
-    FILE* file = fopen(argv[1], "r");
-    BloomFilter BF = BloomFilter(n, nf);
-
-    process_fasta(file, BF);
-    fclose(file);
-
-    srand(time(NULL));
-    random_requests(r, BF);
-
-
-    return 0;
-}

@@ -80,15 +80,6 @@ class BloomFilter {
     }
 
 
-    // TODO : remove test function.
-    public:void print() {
-        for (uint64_t i = 0; i < this->size; i++) {
-            cout << tab.at(i) << ' ';
-        }
-    }
-
-
-
 };
 
 
