@@ -37,7 +37,7 @@ void set_fasta(FILE* fasta){
  */
 char read_fasta(FILE* fasta) {
     int c = fgetc(fasta);
-    if (c == '\n' || c == 'N') return read_fasta(fasta);
+    while (c == '\n' || c == 'N') c = fgetc(fasta);
     return (char) c;
 }
 
@@ -55,8 +55,8 @@ uint64_t set_filter() {
 
 /**
  * Choose between the to form of a k-mer between itself and it's reverse complement.
- * @param kmer the actual kmer.
- * @return the smallest in lexicographic order between kmer and it's reverse complement.
+ * @param kmer the actual k-mer.
+ * @return the smallest in lexicographic order between k-mer and it's reverse complement.
  */
 string choose_complement(const string &kmer) {
     string reverse;
@@ -67,9 +67,9 @@ string choose_complement(const string &kmer) {
 }
 
 /**
- * Hash the given kmer.
- * @param kmer a kmer to hash.
- * @return the minimum between hash of kmer or of it's reverse complement.
+ * Hash the given k-mer.
+ * @param kmer a k-mer to hash.
+ * @return the minimum between hash of k-mer or of it's reverse complement.
  */
 uint64_t hash_string(string kmer) {
     uint64_t value = 0;
@@ -81,8 +81,8 @@ uint64_t hash_string(string kmer) {
 }
 
 /**
- * Hash the reverse complement of a kmer.
- * @param kmer a kmer to reverse and hash.
+ * Hash the reverse complement of a k-mer.
+ * @param kmer a k-mer to reverse and hash.
  * @return the hash of kmer's complement.
  */
 uint64_t hash_rev(string kmer) {
@@ -143,6 +143,7 @@ void process_fasta(FILE* fasta, BloomFilter &BF, const int &length) {
     encoding['T'] = 3; // 11
     encoding['C'] = 1; // 01
     encoding['G'] = 2; // 10
+    //With this encoding a smaller k-mer in lexicographic order has a smaller hash.
 
     rev_table['A'] = 'T';
     rev_table['T'] = 'A';
