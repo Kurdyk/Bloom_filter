@@ -5,7 +5,7 @@ using namespace std;
 
 /** Global variables declaration.
  * encoding is a map to give value to each nucleotide.
- * rev_table is a map that associate a nucleotide with it's complement
+ * rev_table is a map that associate a nucleotide with its complement
  * k is the length of the wanted k-mers
  * filter is used to make bits to bits & necessary to calculate hash values from precedent value.
  */
@@ -54,9 +54,9 @@ uint64_t set_filter() {
 }
 
 /**
- * Choose between the to form of a k-mer between itself and it's reverse complement.
+ * Choose between the to form of a k-mer between itself and its reverse complement.
  * @param kmer the actual k-mer.
- * @return the smallest in lexicographic order between k-mer and it's reverse complement.
+ * @return the smallest in lexicographic order between k-mer and its reverse complement.
  */
 string choose_complement(const string &kmer) {
     string reverse;
@@ -69,7 +69,7 @@ string choose_complement(const string &kmer) {
 /**
  * Hash the given k-mer.
  * @param kmer a k-mer to hash.
- * @return the minimum between hash of k-mer or of it's reverse complement.
+ * @return the minimum between hash of k-mer or of its reverse complement.
  */
 uint64_t hash_string(string kmer) {
     uint64_t value = 0;
@@ -98,11 +98,11 @@ uint64_t hash_rev(string kmer) {
 }
 
 /**
- * Hash the first k-mer of the fasta file and it's complement for initialisation.
+ * Hash the first k-mer of the fasta file and its complement for initialisation.
  * @param kmer the first k-mer of the file.
- * @param prev_val a reference to the hash of the previous k-mer (without considering it's complement).
+ * @param prev_val a reference to the hash of the previous k-mer (without considering its complement).
  * @param prev_val_rc a reference to the hash of the previous k-mer's complement.
- * @return the hash of the first k-mer of the file (or it's complement).
+ * @return the hash of the first k-mer of the file (or its complement).
  */
 uint64_t hash_start(string kmer, uint64_t &prev_val, uint64_t &prev_val_rc) {
     uint64_t value = 0;
@@ -115,13 +115,13 @@ uint64_t hash_start(string kmer, uint64_t &prev_val, uint64_t &prev_val_rc) {
 }
 
 /**
- * Determine the hash of the actual k-mer from the previous k-mer, it's hash value,
- * the hash value of it's complement and the next nucleotide of the sequence.
- * @param prev_val a reference to the hash of the previous k-mer (without considering it's complement).
+ * Determine the hash of the actual k-mer from the previous k-mer, its hash value,
+ * the hash value of its complement and the next nucleotide of the sequence.
+ * @param prev_val a reference to the hash of the previous k-mer (without considering its complement).
  * @param prev_val_rc a reference to the hash of the previous k-mer's complement.
  * @param prev_kmer a reference to the previous k-mer in the file.
  * @param new_end the nucleotide just after prev_kmer determining the actual k-mer.
- * @return the hash value of the actual k-mer or it's complement depending on which is the smallest.
+ * @return the hash value of the actual k-mer or its complement depending on which is the smallest.
  */
 uint64_t hash_from_previous_kmer(uint64_t &prev_val, uint64_t &prev_val_rc, string &prev_kmer, const char &new_end){
     prev_kmer.erase(0, 1).push_back(new_end);
@@ -143,7 +143,10 @@ void process_fasta(FILE* fasta, BloomFilter &BF, const int &length) {
     encoding['T'] = 3; // 11
     encoding['C'] = 1; // 01
     encoding['G'] = 2; // 10
-    //With this encoding a smaller k-mer in lexicographic order has a smaller hash.
+    /*
+     * With this encoding a smaller k-mer in lexicographic order has a smaller hash.
+     * This property is used in hash_from_previous_kmer to choose between a k-mer and its complement.
+     */
 
     rev_table['A'] = 'T';
     rev_table['T'] = 'A';
@@ -194,18 +197,22 @@ string random_kmer() {
 }
 
 /**
- * Make nb_requests of random k-mer to a BloomFilter.
+ * Make nb_requests of random k-mer to a BloomFilter and write them in a file Request.txt.
  * @param nb_requests the wanted number of requests.
  * @param BF a BloomFilter.
  */
 void random_requests(const uint64_t &nb_requests, BloomFilter &BF){
     srand(time(NULL));
+    FILE* out_file = fopen("Requests.txt", "w");
+    char buf[128];
     for (uint64_t i = 0; i < nb_requests; i++) {
         string to_test = random_kmer();
-        cout << "test if kmer (or it's reverse complement) : "
-             << to_test << " is present : " << BF.is_present(hash_string(to_test)) << endl;
+        sprintf(buf, "Test if kmer (or its reverse complement) : %s is present : %d\n",
+                to_test.c_str(), BF.is_present(hash_string(to_test)));
+        fputs(buf, out_file);
     }
-
+    fclose(out_file);
+    cout << "Requests are in Requests.txt." << endl;
 
 }
 

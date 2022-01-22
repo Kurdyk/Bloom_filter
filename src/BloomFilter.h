@@ -26,7 +26,7 @@ class BloomFilter {
     }
 
     /**
-     * Add a element to the Bloom filter, by hashing it's value nf times and setting the corresponding bits to 1.
+     * Add a element to the Bloom filter, by hashing its value nf times and setting the corresponding bits to 1.
      *  @param value a value to add to the Bloom filter.
      */
     public:void add_element(uint64_t value) {
