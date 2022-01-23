@@ -16,7 +16,6 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    /// Getting command line arguments and setting the global variables.
     int k = atol(argv[2]);
     uint64_t n = atol(argv[3]);
     int nf = atoi(argv[4]);

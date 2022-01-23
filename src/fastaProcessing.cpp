@@ -4,9 +4,9 @@
 using namespace std;
 
 /** Global variables declaration.
- * encoding is a map to give value to each nucleotide.
- * rev_table is a map that associate a nucleotide with its complement
- * k is the length of the wanted k-mers
+ * encoding is a map that gives value to each nucleotide.
+ * rev_table is a map that associates a nucleotide with its complement.
+ * k is the length of the wanted k-mers.
  * filter is used to make bits to bits & necessary to calculate hash values from precedent value.
  */
 unordered_map<char, uint64_t> encoding;
@@ -197,7 +197,7 @@ string random_kmer() {
 }
 
 /**
- * Make nb_requests of random k-mer to a BloomFilter and write them in a file Request.txt.
+ * Make nb_requests of random k-mers to a BloomFilter and write them in a file Request.txt.
  * @param nb_requests the wanted number of requests.
  * @param BF a BloomFilter.
  */

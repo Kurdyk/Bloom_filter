@@ -16,7 +16,7 @@ class BloomFilter {
     /**
      * The constructor of the Bloomfilter class.
      * tab is declared as a vector<bool> to use the specific implementation of vector for the type bool.
-     * This implementation construct a vector of n bits and not n bytes to store the values.
+     * This implementation constructs a vector of n bits and not n bytes to store the values.
      * This allows to divide to necessary space by 8.
      */
     public:BloomFilter(uint64_t n, uint nf) {
